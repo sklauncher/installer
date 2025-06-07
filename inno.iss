@@ -41,6 +41,7 @@ DisableDirPage=auto
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DirExistsWarning=no
+MinVersion=6.2.9200
 
 [Files]
 Source: "{#MainJarFile}"; DestDir: "{app}"; Flags: ignoreversion
@@ -127,6 +128,14 @@ end;
 
 procedure RenameJRE;
 begin
+  if DirExists(ExpandConstant('{app}\\jre')) then begin
+    Log('Deleting old jre directory');
+    if not DelTree(ExpandConstant('{app}\\jre'), True, True, True) then begin
+      Log('Failed to delete old jre folder');
+      Exit;
+    end;
+  end;
+
   Log('Renaming jre directory');
   if not RenameFile(ExpandConstant('{app}\\{#JREFolder}'), ExpandConstant('{app}\\jre')) then begin
     Log('Failed to rename jre folder');
@@ -252,6 +261,10 @@ Filename: "{tmp}\7za.exe"; Parameters: "x -y {tmp}\jre.zip"; WorkingDir: "{app}"
 Filename: "{app}\jre\bin\javaw.exe"; Parameters: "-Xmx512M -jar ""{app}\{#MainJarFile}"""; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
+; Installer files
 Type: filesandordirs; Name: "{app}\jre"
 Type: filesandordirs; Name: "{userappdata}\.minecraft\{#AppDir}"
 Type: filesandordirs; Name: "{userappdata}\.minecraft\{#AppDir}\javafx"
+; Installer + Launcher files
+Type: filesandordirs; Name: "{userappdata}\.minecraft\launcher_profiles.json.skbak"
+Type: filesandordirs; Name: "{userappdata}\.minecraft\sklauncher-fx.jar"
