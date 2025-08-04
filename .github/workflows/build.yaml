@@ -36,7 +36,7 @@ jobs:
 #        run: |
 #          choco install innosetup --no-progress
 
-      - uses: MinoruSekine/setup-scoop@v4.0.1
+      - uses: MinoruSekine/setup-scoop@v4.0.2
         with:
           buckets: nonportable
           apps: innosetup-np
