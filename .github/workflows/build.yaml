@@ -12,7 +12,7 @@ jobs:
       installer-checksum: ${{ steps.installer-hash.outputs.checksum }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The JAR file is not stored in the repository, so we need to download it.
       # Since the download uses a one-time URL, we keep a direct link in the repository secrets.
