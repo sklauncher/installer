@@ -8,7 +8,7 @@
 #define JREVersion "25+36"
 #define JREFolder "jdk-25+36-jre"
 #define JRESHA256 "66abb3213ce984ecb7b3ae7edfeac2d58622297f8c114eb467518dd63e42aa3f"
-#define JavaFXVersion "26-ea+7"
+#define JavaFXVersion "22.0.2"
 #define MainJarFile "SKlauncher.jar"
 
 [Setup]
@@ -94,7 +94,7 @@ function GetJavaFXDownloadURL(Module: String; IsSHA1: Boolean): String;
 var
   BaseURL: String;
 begin
-  BaseURL := 'https://repo1.maven.org/maven2/org/openjfx/' + Module + '/' + '{#JavaFXVersion}' + '/' + Module + '-' + '{#JavaFXVersion}';
+  BaseURL := 'https://maven.skmedix.pl/org/openjfx/' + Module + '/' + '{#JavaFXVersion}' + '/' + Module + '-' + '{#JavaFXVersion}';
   
   if IsSHA1 then
     Result := BaseURL + '-win.jar.sha1'
