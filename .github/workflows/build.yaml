@@ -80,7 +80,7 @@ jobs:
           echo "date_now=$(date --rfc-3339=seconds)" >> "${GITHUB_OUTPUT}"
 
       - name: Download build artifacts from previous job
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: SKlauncher-Installer
           path: artifacts
