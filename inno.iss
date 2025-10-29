@@ -5,9 +5,9 @@
 #define AppVersionShort "3.2"
 #define AppAuthor "skmedix.pl"
 #define AppDir "sklauncher"
-#define JREVersion "25+36"
-#define JREFolder "jdk-25+36-jre"
-#define JRESHA256 "66abb3213ce984ecb7b3ae7edfeac2d58622297f8c114eb467518dd63e42aa3f"
+#define JREVersion "25.0.1+8"
+#define JREFolder "jdk-25.0.1+8-jre"
+#define JRESHA256 "317ffcdd88eec2914506ba8456a6d1717f8efb9b148d2214ae793cfa9ec7b54d"
 #define JavaFXVersion "22.0.2"
 #define MainJarFile "SKlauncher.jar"
 
