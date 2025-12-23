@@ -52,7 +52,7 @@ jobs:
         shell: pwsh
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: SKlauncher-Installer
           path: "*_Setup.exe"
