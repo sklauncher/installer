@@ -8,8 +8,6 @@
 #define JREVersion "25.0.1+8"
 #define JREFolder "jdk-25.0.1+8-jre"
 #define JRESHA256 "317ffcdd88eec2914506ba8456a6d1717f8efb9b148d2214ae793cfa9ec7b54d"
-#define ZuluJREFolder "zulu25.30.17-ca-jre25.0.1-win_x64"
-#define ZuluJRESHA256 "ef68a1aa2c2b05bc238eb9946aa1f580135ccb001739fb74782b5f9939bf69d7"
 #define JavaFXVersion "22.0.2"
 #define MainJarFile "SKlauncher.jar"
 
@@ -72,7 +70,6 @@ var
   DownloadPage: TDownloadWizardPage;
   DownloadError: String;
   JavaFXModules: array[0..5] of string;
-  UsedZuluJRE: Boolean;
 
 function OnDownloadProgress(Url, FileName: String; Progress, ProgressMax: Int64): Boolean;
 begin
@@ -133,17 +130,14 @@ procedure RenameJRE;
 var
   TempJREPath, FinalJREPath: String;
 begin
-  if UsedZuluJRE then
-    TempJREPath := ExpandConstant('{tmp}\{#ZuluJREFolder}')
-  else
-    TempJREPath := ExpandConstant('{tmp}\{#JREFolder}');
+  TempJREPath := ExpandConstant('{tmp}\{#JREFolder}');
   FinalJREPath := ExpandConstant('{app}\jre');
 
   Log('Starting JRE directory management...');
-  Log('Used Zulu JRE: ' + BoolToStr(UsedZuluJRE));
   Log('Temp JRE path: ' + TempJREPath);
   Log('Final JRE path: ' + FinalJREPath);
 
+  // Remove existing jre directory if it exists
   if DirExists(FinalJREPath) then
   begin
     Log('Removing existing jre directory...');
@@ -153,10 +147,12 @@ begin
       Log('Failed to remove existing jre directory');
   end;
 
+  // Move the extracted JRE directory from temp to app directory
   if DirExists(TempJREPath) then
   begin
     Log('Moving JRE directory from ' + TempJREPath + ' to ' + FinalJREPath);
 
+    // Ensure the app directory exists
     if not DirExists(ExpandConstant('{app}')) then
     begin
       Log('Creating app directory...');
@@ -177,75 +173,20 @@ var
   ErrorMsg: String;
   i: Integer;
   URL: String;
-  AdoptiumFailed: Boolean;
 begin
   Result := True;
   
   if CurPageID = wpReady then begin
     DownloadPage.Clear;
-    AdoptiumFailed := False;
-    UsedZuluJRE := False;
     
     Log('Starting download process...');
     
-    Log('Trying Adoptium JRE download...');
+    // Add JRE download
+    Log('Adding JRE download to queue...');
     DownloadPage.Add('https://github.com/adoptium/temurin25-binaries/releases/download/jdk-{#JREVersion}/OpenJDK25U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
       'jre.zip', '{#JRESHA256}');
 
-    DownloadPage.Show;
-    try
-      try
-        DownloadPage.Download;
-        Log('Adoptium JRE downloaded successfully');
-      except
-        if DownloadPage.AbortedByUser then begin
-          Log('Download aborted by user.');
-          ErrorMsg := 'Download was cancelled. SKlauncher requires Java and JavaFX to function. Setup cannot continue.';
-          SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
-          Result := False;
-          Exit;
-        end else begin
-          DownloadError := GetExceptionMessage;
-          Log('Adoptium download failed: ' + DownloadError);
-          AdoptiumFailed := True;
-        end;
-      end;
-    finally
-      DownloadPage.Hide;
-    end;
-
-    if AdoptiumFailed then begin
-      Log('Trying Zulu JRE as fallback...');
-      DownloadPage.Clear;
-      DownloadPage.Add('https://cdn.azul.com/zulu/bin/{#ZuluJREFolder}.zip',
-        'jre.zip', '{#ZuluJRESHA256}');
-
-      DownloadPage.Show;
-      try
-        try
-          DownloadPage.Download;
-          Log('Zulu JRE downloaded successfully');
-          UsedZuluJRE := True;
-        except
-          if DownloadPage.AbortedByUser then begin
-            Log('Download aborted by user.');
-            ErrorMsg := 'Download was cancelled. SKlauncher requires Java and JavaFX to function. Setup cannot continue.';
-          end else begin
-            DownloadError := GetExceptionMessage;
-            Log('Zulu download also failed: ' + DownloadError);
-            ErrorMsg := 'Failed to download required files from both Adoptium and Zulu: ' + DownloadError + #13#10 +
-                       'SKlauncher requires Java and JavaFX to function. Please check your internet connection and try again.';
-          end;
-          SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
-          Result := False;
-          Exit;
-        end;
-      finally
-        DownloadPage.Hide;
-      end;
-    end;
-
-    DownloadPage.Clear;
+    // Add JavaFX module downloads
     for i := 0 to 5 do begin
       URL := GetJavaFXDownloadURL(JavaFXModules[i], False);
       Log('Adding JavaFX module to queue: ' + URL);
@@ -259,17 +200,17 @@ begin
     DownloadPage.Show;
     try
       try
-        Log('Starting JavaFX downloads...');
+        Log('Starting downloads...');
         DownloadPage.Download;
-        Log('JavaFX downloads completed successfully');
+        Log('Downloads completed successfully');
       except
         if DownloadPage.AbortedByUser then begin
           Log('Download aborted by user.');
           ErrorMsg := 'Download was cancelled. SKlauncher requires Java and JavaFX to function. Setup cannot continue.';
         end else begin
           DownloadError := GetExceptionMessage;
-          Log('JavaFX download error: ' + DownloadError);
-          ErrorMsg := 'Failed to download JavaFX files: ' + DownloadError + #13#10 +
+          Log('Download error: ' + DownloadError);
+          ErrorMsg := 'Failed to download required files: ' + DownloadError + #13#10 +
                      'SKlauncher requires Java and JavaFX to function. Please check your internet connection and try again.';
         end;
         SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
