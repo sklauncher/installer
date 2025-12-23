@@ -5,11 +5,11 @@
 #define AppVersionShort "3.2"
 #define AppAuthor "skmedix.pl"
 #define AppDir "sklauncher"
-#define JREVersion "25.0.1+8"
-#define JREFolder "jdk-25.0.1+8-jre"
-#define JRESHA256 "317ffcdd88eec2914506ba8456a6d1717f8efb9b148d2214ae793cfa9ec7b54d"
-#define ZuluJREFolder "zulu25.30.17-ca-jre25.0.1-win_x64"
-#define ZuluJRESHA256 "ef68a1aa2c2b05bc238eb9946aa1f580135ccb001739fb74782b5f9939bf69d7"
+#define JREVersion "21.0.6+7"
+#define JREFolder "jdk-21.0.6+7-jre"
+#define JRESHA256 "707c981a4ff9e680a9ea5d6f625eafe8bc47e1f89140a67d761fde24fc02ab49"
+#define ZuluJREFolder "zulu21.46.19-ca-jre21.0.9-win_x64"
+#define ZuluJRESHA256 "a72b61a7902ea2baf940fca8e89913e2347b98c294943632a4f9621c0226e684"
 #define JavaFXVersion "22.0.2"
 #define MainJarFile "SKlauncher.jar"
 
@@ -26,7 +26,7 @@ DefaultDirName={userappdata}\{#AppDir}
 DisableProgramGroupPage=no
 DefaultGroupName={#AppName}
 PrivilegesRequired=lowest
-OutputBaseFilename={#AppName}_{#AppVersionPretty}_Setup
+OutputBaseFilename={#AppName}_{#AppVersionPretty}_Setup_JRE21
 SetupIconFile=img/icon.ico
 UninstallDisplayIcon={app}\icon.ico
 UninstallDisplayName={#AppName} {#AppVersionShort}
@@ -189,7 +189,7 @@ begin
     Log('Starting download process...');
     
     Log('Trying Adoptium JRE download...');
-    DownloadPage.Add('https://github.com/adoptium/temurin25-binaries/releases/download/jdk-{#JREVersion}/OpenJDK25U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
+    DownloadPage.Add('https://github.com/adoptium/temurin21-binaries/releases/download/jdk-{#JREVersion}/OpenJDK21U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
       'jre.zip', '{#JRESHA256}');
 
     DownloadPage.Show;
@@ -291,7 +291,6 @@ begin
   DestDir := ExpandConstant('{userappdata}\.minecraft\{#AppDir}\javafx');
   Log('Destination directory: ' + DestDir);
   
-  // Ensure the destination directory exists
   if not DirExists(DestDir) then
   begin
     Log('Creating destination directory...');
@@ -349,7 +348,6 @@ end;
 
 [Run]
 
-; Launch the JAR file after installation
 Filename: "{app}\jre\bin\javaw.exe"; Parameters: "-Xmx512M -jar ""{app}\{#MainJarFile}"""; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]

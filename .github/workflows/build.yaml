@@ -37,23 +37,31 @@ jobs:
 #        run: |
 #          choco install innosetup --no-progress
 
-      - name: Compile Installer
+      - name: Compile Installer (JRE 25)
         run: |
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /O"." inno.iss
+        shell: pwsh
+
+      - name: Compile Installer (JRE 21)
+        run: |
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /O"." inno-jre21.iss
         shell: pwsh
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: SKlauncher-Installer
-          path: "*_Setup.exe"
+          path: "*_Setup*.exe"
 
-      - name: Display and capture checksum of Installer
+      - name: Display and capture checksum of Installers
         id: installer-hash
         run: |
-          $hash = (Get-FileHash *_Setup.exe -Algorithm SHA256).Hash
-          Write-Host "Installer SHA256: $hash"
-          Add-Content $env:GITHUB_OUTPUT "checksum=$hash"
+          Get-ChildItem *_Setup*.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            Write-Host "$($_.Name) SHA256: $hash"
+          }
+          $mainHash = (Get-FileHash "*_Setup.exe" -Algorithm SHA256).Hash
+          Add-Content $env:GITHUB_OUTPUT "checksum=$mainHash"
         shell: pwsh
 
   update_latest_release:
