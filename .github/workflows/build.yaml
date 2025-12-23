@@ -47,13 +47,25 @@ jobs:
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /O"." inno-jre21.iss
         shell: pwsh
 
+      - name: Generate SHA256 hash files
+        run: |
+          Get-ChildItem *_Setup*.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            $hashFile = "$($_.FullName).sha256"
+            Set-Content -Path $hashFile -Value "$hash  $($_.Name)" -NoNewline
+            Write-Host "Created $($_.Name).sha256: $hash"
+          }
+        shell: pwsh
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: SKlauncher-Installer
-          path: "*_Setup*.exe"
+          path: |
+            *_Setup*.exe
+            *_Setup*.exe.sha256
 
-      - name: Display and capture checksum of Installers
+      - name: Display checksums of Installers
         id: installer-hash
         run: |
           Get-ChildItem *_Setup*.exe | ForEach-Object {
