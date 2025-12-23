@@ -5,9 +5,9 @@
 #define AppVersionShort "3.2"
 #define AppAuthor "skmedix.pl"
 #define AppDir "sklauncher"
-#define JREVersion "25.0.1+8"
-#define JREFolder "jdk-25.0.1+8-jre"
-#define JRESHA256 "317ffcdd88eec2914506ba8456a6d1717f8efb9b148d2214ae793cfa9ec7b54d"
+#define JREVersion "21.0.9+10"
+#define JREFolder "jdk-21.0.9+10-jre"
+#define JRESHA256 "39c5e23f3ce4d420663afba8ffde28034b72e2b3e240943dc2321bc1f912eef9"
 #define JavaFXVersion "22.0.2"
 #define MainJarFile "SKlauncher.jar"
 
@@ -183,7 +183,7 @@ begin
     
     // Add JRE download
     Log('Adding JRE download to queue...');
-    DownloadPage.Add('https://github.com/adoptium/temurin25-binaries/releases/download/jdk-{#JREVersion}/OpenJDK25U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
+    DownloadPage.Add('https://github.com/adoptium/temurin21-binaries/releases/download/jdk-{#JREVersion}/OpenJDK21U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
       'jre.zip', '{#JRESHA256}');
 
     // Add JavaFX module downloads

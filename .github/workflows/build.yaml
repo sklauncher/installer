@@ -37,14 +37,9 @@ jobs:
 #        run: |
 #          choco install innosetup --no-progress
 
-      - name: Compile Installer (JRE 25)
+      - name: Compile Installer
         run: |
           & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /O"." inno.iss
-        shell: pwsh
-
-      - name: Compile Installer (JRE 21)
-        run: |
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /O"." inno-jre21.iss
         shell: pwsh
 
       - name: Generate SHA256 hash files
