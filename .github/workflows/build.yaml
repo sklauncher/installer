@@ -35,8 +35,7 @@ jobs:
 
       - name: Install InnoSetup
         run: |
-          winget install --id=JRSoftware.InnoSetup -e --silent --accept-source-agreements --accept-package-agreements
-        shell: pwsh
+          choco install innosetup --no-progress
 
       - name: Compile Installer
         run: |
