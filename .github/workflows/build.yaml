@@ -39,15 +39,7 @@ jobs:
 
       - name: Compile Installer
         run: |
-          $isccPath = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
-          
-          if (-not (Test-Path $isccPath)) {
-            Write-Error "ISCC.exe not found at: $isccPath"
-            exit 1
-          }
-          
-          Write-Host "Found ISCC.exe at: $isccPath"
-          & $isccPath /O"." inno.iss
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' /O"." inno.iss
         shell: pwsh
 
       - name: Upload Artifacts
