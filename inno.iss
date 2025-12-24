@@ -1,7 +1,7 @@
 #define AppName "SKlauncher"
 #define AppURL "https://skmedix.pl"
 #define AppVersion "3.2.16.0"
-#define AppVersionPretty "3.2.15"
+#define AppVersionPretty "3.2.16"
 #define AppVersionShort "3.2"
 #define AppAuthor "skmedix.pl"
 #define AppDir "sklauncher"
