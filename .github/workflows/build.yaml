@@ -35,7 +35,7 @@ jobs:
 
       - name: Upgrade InnoSetup
         run: |
-          choco upgrade innosetup -y --force
+          choco upgrade innosetup -y --force --no-progress
 
       - name: Compile Installer
         run: |
