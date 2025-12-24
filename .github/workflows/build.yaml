@@ -33,9 +33,9 @@ jobs:
           Add-Content $env:GITHUB_OUTPUT "checksum=$hash"
         shell: pwsh
 
-#      - name: Install InnoSetup
-#        run: |
-#          choco install innosetup --no-progress
+      - name: Upgrade InnoSetup
+        run: |
+          choco upgrade innosetup -y --force
 
       - name: Compile Installer
         run: |
