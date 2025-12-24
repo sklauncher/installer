@@ -4,11 +4,20 @@
 #define AppVersionPretty "3.2.17"
 #define AppAuthor "skmedix.pl"
 #define AppDir "sklauncher"
-#define JREVersion "21.0.9+10"
-#define JREFolder "jdk-21.0.9+10-jre"
-#define JRESHA256 "39c5e23f3ce4d420663afba8ffde28034b72e2b3e240943dc2321bc1f912eef9"
 #define JavaFXVersion "22.0.2"
 #define MainJarFile "SKlauncher.jar"
+
+#define ZuluJREUrl "https://cdn.azul.com/zulu/bin/zulu21.46.19-ca-jre21.0.9-win_x64.zip"
+#define ZuluJREFolder "zulu21.46.19-ca-jre21.0.9-win_x64"
+#define ZuluJRESHA256 "a72b61a7902ea2baf940fca8e89913e2347b98c294943632a4f9621c0226e684"
+
+#define AdoptiumJREUrl "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.9%2B10/OpenJDK21U-jre_x64_windows_hotspot_21.0.9_10.zip"
+#define AdoptiumJREFolder "jdk-21.0.9+10-jre"
+#define AdoptiumJRESHA256 "39c5e23f3ce4d420663afba8ffde28034b72e2b3e240943dc2321bc1f912eef9"
+
+#define Zulu8JREUrl "https://cdn.azul.com/zulu/bin/zulu8.90.0.19-ca-fx-jre8.0.472-win_x64.zip"
+#define Zulu8JREFolder "zulu8.90.0.19-ca-fx-jre8.0.472-win_x64"
+#define Zulu8JRESHA256 "4383fed694c640886dc99a1c38c4f2b3d035a6a4911f17ea8f8dcd35188b527a"
 
 [Setup]
 AppId={{A151427E-7A46-4D6D-8534-C4C04BADA77A}
@@ -41,7 +50,7 @@ DisableDirPage=auto
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 DirExistsWarning=no
-MinVersion=6.2.9200
+MinVersion=6.1.7600
 
 [Files]
 Source: "{#MainJarFile}"; DestDir: "{app}"; Flags: ignoreversion
@@ -69,6 +78,7 @@ var
   DownloadPage: TDownloadWizardPage;
   DownloadError: String;
   JavaFXModules: array[0..5] of string;
+  CurrentJREFolder: String;
 
 function OnDownloadProgress(Url, FileName: String; Progress, ProgressMax: Int64): Boolean;
 begin
@@ -129,7 +139,7 @@ procedure RenameJRE;
 var
   TempJREPath, FinalJREPath, TempBackupPath: String;
 begin
-  TempJREPath := ExpandConstant('{tmp}\{#JREFolder}');
+  TempJREPath := ExpandConstant('{tmp}\') + CurrentJREFolder;
   FinalJREPath := ExpandConstant('{app}\jre');
   TempBackupPath := ExpandConstant('{app}\jre_backup');
 
@@ -212,88 +222,142 @@ begin
   end;
 end;
 
+function TryDownloadJRE(JREURL, JRESHA256, JREFolderName: String): Boolean;
+begin
+  Result := False;
+  DownloadPage.Clear;
+  Log('Trying JRE download from: ' + JREURL);
+  DownloadPage.Add(JREURL, 'jre.zip', JRESHA256);
+  
+  DownloadPage.Show;
+  try
+    try
+      DownloadPage.Download;
+      Log('JRE download completed successfully from: ' + JREURL);
+      Result := True;
+    except
+      if DownloadPage.AbortedByUser then
+        Log('Download aborted by user')
+      else
+      begin
+        DownloadError := GetExceptionMessage;
+        Log('JRE download failed from ' + JREURL + ': ' + DownloadError);
+      end;
+    end;
+  finally
+    DownloadPage.Hide;
+  end;
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   ErrorMsg: String;
   i: Integer;
   URL: String;
   JavaFXDownloadFailed: Boolean;
+  JREDownloaded: Boolean;
+  WindowsVersion: TWindowsVersion;
+  IsLegacyWindows: Boolean;
 begin
   Result := True;
   
   if CurPageID = wpReady then begin
     JavaFXDownloadFailed := False;
+    JREDownloaded := False;
     
-    DownloadPage.Clear;
-    Log('Starting JRE download process...');
+    GetWindowsVersionEx(WindowsVersion);
+    IsLegacyWindows := (WindowsVersion.Major < 10);
     
-    Log('Adding JRE download to queue...');
-    DownloadPage.Add('https://github.com/adoptium/temurin21-binaries/releases/download/jdk-{#JREVersion}/OpenJDK21U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
-      'jre.zip', '{#JRESHA256}');
-
-    DownloadPage.Show;
-    try
-      try
-        Log('Starting JRE download...');
-        DownloadPage.Download;
-        Log('JRE download completed successfully');
-      except
-        if DownloadPage.AbortedByUser then begin
-          Log('Download aborted by user.');
-          ErrorMsg := 'Download was cancelled. SKlauncher requires Java to function. Setup cannot continue.';
-        end else begin
-          DownloadError := GetExceptionMessage;
-          Log('JRE download error: ' + DownloadError);
-          ErrorMsg := 'Failed to download Java Runtime: ' + DownloadError + #13#10 +
-                     'SKlauncher requires Java to function. Please check your internet connection and try again.';
-        end;
-        SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
-        Result := False;
-        DownloadPage.Hide;
-        Exit;
+    Log('Windows version: ' + IntToStr(WindowsVersion.Major) + '.' + IntToStr(WindowsVersion.Minor));
+    if IsLegacyWindows then
+      Log('Legacy Windows detected (7/8/8.1)')
+    else
+      Log('Modern Windows detected (10+)');
+    
+    if IsLegacyWindows then
+    begin
+      Log('Detected Windows 7/8/8.1, using Zulu JRE 8 with JavaFX...');
+      if TryDownloadJRE('{#Zulu8JREUrl}', '{#Zulu8JRESHA256}', '{#Zulu8JREFolder}') then
+      begin
+        JREDownloaded := True;
+        CurrentJREFolder := '{#Zulu8JREFolder}';
       end;
-    finally
-      DownloadPage.Hide;
-    end;
-
-    DownloadPage.Clear;
-    Log('Starting JavaFX download process...');
-    
-    for i := 0 to 5 do begin
-      URL := GetJavaFXDownloadURL(JavaFXModules[i], False);
-      Log('Adding JavaFX module to queue: ' + URL);
-      DownloadPage.Add(URL, 'javafx-' + IntToStr(i) + '.jar', '');
+    end
+    else
+    begin
+      Log('Detected Windows 10+, using JRE 21 with mirror support...');
       
-      URL := GetJavaFXDownloadURL(JavaFXModules[i], True);
-      Log('Adding JavaFX SHA1 to queue: ' + URL);
-      DownloadPage.Add(URL, 'javafx-' + IntToStr(i) + '.jar.sha1', '');
-    end;
-
-    DownloadPage.Show;
-    try
-      try
-        Log('Starting JavaFX downloads...');
-        DownloadPage.Download;
-        Log('JavaFX downloads completed successfully');
-      except
-        if DownloadPage.AbortedByUser then begin
-          Log('JavaFX download aborted by user.');
-          ErrorMsg := 'JavaFX download was cancelled. The launcher will attempt to download JavaFX on first run.';
-        end else begin
-          DownloadError := GetExceptionMessage;
-          Log('JavaFX download error (non-critical): ' + DownloadError);
-          ErrorMsg := 'Failed to download JavaFX: ' + DownloadError + #13#10#13#10 +
-                     'Installation will continue. The launcher will attempt to download JavaFX on first run.';
+      Log('Trying primary mirror (Azul Zulu 21)...');
+      if TryDownloadJRE('{#ZuluJREUrl}', '{#ZuluJRESHA256}', '{#ZuluJREFolder}') then
+      begin
+        JREDownloaded := True;
+        CurrentJREFolder := '{#ZuluJREFolder}';
+      end
+      else
+      begin
+        Log('Primary mirror failed, trying fallback (Adoptium)...');
+        if TryDownloadJRE('{#AdoptiumJREUrl}', '{#AdoptiumJRESHA256}', '{#AdoptiumJREFolder}') then
+        begin
+          JREDownloaded := True;
+          CurrentJREFolder := '{#AdoptiumJREFolder}';
         end;
-        SuppressibleMsgBox(ErrorMsg, mbInformation, MB_OK, IDOK);
-        JavaFXDownloadFailed := True;
       end;
-    finally
-      DownloadPage.Hide;
     end;
     
-    if JavaFXDownloadFailed then
-      Log('Continuing installation despite JavaFX download failure');
+    if not JREDownloaded then
+    begin
+      ErrorMsg := 'Failed to download Java Runtime from all mirrors.' + #13#10 +
+                 'SKlauncher requires Java to function. Please check your internet connection and try again.';
+      SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
+      Result := False;
+      Exit;
+    end;
+    
+    if IsLegacyWindows then
+    begin
+      Log('Skipping JavaFX download for legacy Windows (JRE 8 includes JavaFX)');
+    end
+    else
+    begin
+      DownloadPage.Clear;
+      Log('Starting JavaFX download process...');
+      
+      for i := 0 to 5 do begin
+        URL := GetJavaFXDownloadURL(JavaFXModules[i], False);
+        Log('Adding JavaFX module to queue: ' + URL);
+        DownloadPage.Add(URL, 'javafx-' + IntToStr(i) + '.jar', '');
+        
+        URL := GetJavaFXDownloadURL(JavaFXModules[i], True);
+        Log('Adding JavaFX SHA1 to queue: ' + URL);
+        DownloadPage.Add(URL, 'javafx-' + IntToStr(i) + '.jar.sha1', '');
+      end;
+
+      DownloadPage.Show;
+      try
+        try
+          Log('Starting JavaFX downloads...');
+          DownloadPage.Download;
+          Log('JavaFX downloads completed successfully');
+        except
+          if DownloadPage.AbortedByUser then begin
+            Log('JavaFX download aborted by user.');
+            ErrorMsg := 'JavaFX download was cancelled. The launcher will attempt to download JavaFX on first run.';
+          end else begin
+            DownloadError := GetExceptionMessage;
+            Log('JavaFX download error (non-critical): ' + DownloadError);
+            ErrorMsg := 'Failed to download JavaFX: ' + DownloadError + #13#10#13#10 +
+                       'Installation will continue. The launcher will attempt to download JavaFX on first run.';
+          end;
+          SuppressibleMsgBox(ErrorMsg, mbInformation, MB_OK, IDOK);
+          JavaFXDownloadFailed := True;
+        end;
+      finally
+        DownloadPage.Hide;
+      end;
+      
+      if JavaFXDownloadFailed then
+        Log('Continuing installation despite JavaFX download failure');
+    end;
   end;
 end;
 
@@ -400,6 +464,5 @@ Filename: "{app}\jre\bin\javaw.exe"; Parameters: "-Xmx512M -jar ""{app}\{#MainJa
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\jre"
-Type: filesandordirs; Name: "{app}\{#JREFolder}"
 Type: filesandordirs; Name: "{userappdata}\.minecraft\{#AppDir}"
 Type: filesandordirs; Name: "{userappdata}\.minecraft\{#AppDir}\javafx"
