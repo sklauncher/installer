@@ -128,44 +128,71 @@ end;
 
 procedure RenameJRE;
 var
-  TempJREPath, FinalJREPath: String;
+  TempJREPath, FinalJREPath, TempBackupPath: String;
 begin
   TempJREPath := ExpandConstant('{tmp}\{#JREFolder}');
   FinalJREPath := ExpandConstant('{app}\jre');
+  TempBackupPath := ExpandConstant('{app}\jre_backup');
 
   Log('Starting JRE directory management...');
   Log('Temp JRE path: ' + TempJREPath);
   Log('Final JRE path: ' + FinalJREPath);
 
-  // Remove existing jre directory if it exists
-  if DirExists(FinalJREPath) then
+  if not DirExists(TempJREPath) then
   begin
-    Log('Removing existing jre directory...');
-    if DelTree(FinalJREPath, True, True, True) then
-      Log('Successfully removed existing jre directory')
-    else
-      Log('Failed to remove existing jre directory');
+    Log('Source JRE directory not found: ' + TempJREPath);
+    Log('Keeping existing JRE directory if present to avoid leaving user with empty JRE');
+    Exit;
   end;
 
-  // Move the extracted JRE directory from temp to app directory
-  if DirExists(TempJREPath) then
+  Log('New JRE extracted successfully, proceeding with replacement...');
+
+  if not DirExists(ExpandConstant('{app}')) then
   begin
-    Log('Moving JRE directory from ' + TempJREPath + ' to ' + FinalJREPath);
+    Log('Creating app directory...');
+    ForceDirectories(ExpandConstant('{app}'));
+  end;
 
-    // Ensure the app directory exists
-    if not DirExists(ExpandConstant('{app}')) then
-    begin
-      Log('Creating app directory...');
-      ForceDirectories(ExpandConstant('{app}'));
-    end;
-
-    if RenameFile(TempJREPath, FinalJREPath) then
-      Log('Successfully moved JRE directory')
+  if DirExists(FinalJREPath) then
+  begin
+    Log('Backing up existing jre directory to: ' + TempBackupPath);
+    if DirExists(TempBackupPath) then
+      DelTree(TempBackupPath, True, True, True);
+    
+    if RenameFile(FinalJREPath, TempBackupPath) then
+      Log('Successfully backed up existing jre directory')
     else
-      Log('Failed to move JRE directory');
+    begin
+      Log('Failed to backup existing jre directory, trying direct delete...');
+      if DelTree(FinalJREPath, True, True, True) then
+        Log('Successfully removed existing jre directory')
+      else
+        Log('Failed to remove existing jre directory');
+    end;
+  end;
+
+  Log('Moving JRE directory from ' + TempJREPath + ' to ' + FinalJREPath);
+  if RenameFile(TempJREPath, FinalJREPath) then
+  begin
+    Log('Successfully moved JRE directory');
+    if DirExists(TempBackupPath) then
+    begin
+      Log('Removing backup directory...');
+      DelTree(TempBackupPath, True, True, True);
+    end;
   end
   else
-    Log('Source JRE directory not found: ' + TempJREPath);
+  begin
+    Log('Failed to move JRE directory');
+    if DirExists(TempBackupPath) and not DirExists(FinalJREPath) then
+    begin
+      Log('Restoring backup JRE directory...');
+      if RenameFile(TempBackupPath, FinalJREPath) then
+        Log('Successfully restored backup JRE directory')
+      else
+        Log('Failed to restore backup JRE directory');
+    end;
+  end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -173,20 +200,48 @@ var
   ErrorMsg: String;
   i: Integer;
   URL: String;
+  JavaFXDownloadFailed: Boolean;
 begin
   Result := True;
   
   if CurPageID = wpReady then begin
+    JavaFXDownloadFailed := False;
+    
     DownloadPage.Clear;
+    Log('Starting JRE download process...');
     
-    Log('Starting download process...');
-    
-    // Add JRE download
     Log('Adding JRE download to queue...');
     DownloadPage.Add('https://github.com/adoptium/temurin21-binaries/releases/download/jdk-{#JREVersion}/OpenJDK21U-jre_x64_windows_hotspot_{#StringChange(JREVersion, '+', '_')}.zip',
       'jre.zip', '{#JRESHA256}');
 
-    // Add JavaFX module downloads
+    DownloadPage.Show;
+    try
+      try
+        Log('Starting JRE download...');
+        DownloadPage.Download;
+        Log('JRE download completed successfully');
+      except
+        if DownloadPage.AbortedByUser then begin
+          Log('Download aborted by user.');
+          ErrorMsg := 'Download was cancelled. SKlauncher requires Java to function. Setup cannot continue.';
+        end else begin
+          DownloadError := GetExceptionMessage;
+          Log('JRE download error: ' + DownloadError);
+          ErrorMsg := 'Failed to download Java Runtime: ' + DownloadError + #13#10 +
+                     'SKlauncher requires Java to function. Please check your internet connection and try again.';
+        end;
+        SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
+        Result := False;
+        DownloadPage.Hide;
+        Exit;
+      end;
+    finally
+      DownloadPage.Hide;
+    end;
+
+    DownloadPage.Clear;
+    Log('Starting JavaFX download process...');
+    
     for i := 0 to 5 do begin
       URL := GetJavaFXDownloadURL(JavaFXModules[i], False);
       Log('Adding JavaFX module to queue: ' + URL);
@@ -200,25 +255,28 @@ begin
     DownloadPage.Show;
     try
       try
-        Log('Starting downloads...');
+        Log('Starting JavaFX downloads...');
         DownloadPage.Download;
-        Log('Downloads completed successfully');
+        Log('JavaFX downloads completed successfully');
       except
         if DownloadPage.AbortedByUser then begin
-          Log('Download aborted by user.');
-          ErrorMsg := 'Download was cancelled. SKlauncher requires Java and JavaFX to function. Setup cannot continue.';
+          Log('JavaFX download aborted by user.');
+          ErrorMsg := 'JavaFX download was cancelled. The launcher will attempt to download JavaFX on first run.';
         end else begin
           DownloadError := GetExceptionMessage;
-          Log('Download error: ' + DownloadError);
-          ErrorMsg := 'Failed to download required files: ' + DownloadError + #13#10 +
-                     'SKlauncher requires Java and JavaFX to function. Please check your internet connection and try again.';
+          Log('JavaFX download error (non-critical): ' + DownloadError);
+          ErrorMsg := 'Failed to download JavaFX: ' + DownloadError + #13#10#13#10 +
+                     'Installation will continue. The launcher will attempt to download JavaFX on first run.';
         end;
-        SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
-        Result := False;
+        SuppressibleMsgBox(ErrorMsg, mbInformation, MB_OK, IDOK);
+        JavaFXDownloadFailed := True;
       end;
     finally
       DownloadPage.Hide;
     end;
+    
+    if JavaFXDownloadFailed then
+      Log('Continuing installation despite JavaFX download failure');
   end;
 end;
 
