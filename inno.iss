@@ -2,7 +2,6 @@
 #define AppURL "https://skmedix.pl"
 #define AppVersion "3.2.16.0"
 #define AppVersionPretty "3.2.16"
-#define AppVersionShort "3.2"
 #define AppAuthor "skmedix.pl"
 #define AppDir "sklauncher"
 #define JREVersion "21.0.9+10"
@@ -13,7 +12,7 @@
 
 [Setup]
 AppId={{A151427E-7A46-4D6D-8534-C4C04BADA77A}
-AppName={#AppName} {#AppVersionShort}
+AppName={#AppName} {#AppVersionPretty}
 AppVersion={#AppVersion}
 AppPublisher={#AppAuthor}
 AppPublisherURL={#AppURL}
@@ -27,7 +26,7 @@ PrivilegesRequired=lowest
 OutputBaseFilename={#AppName}_{#AppVersionPretty}_Setup
 SetupIconFile=img/icon.ico
 UninstallDisplayIcon={app}\icon.ico
-UninstallDisplayName={#AppName} {#AppVersionShort}
+UninstallDisplayName={#AppName} {#AppVersionPretty}
 ArchiveExtraction=full
 ; start - https://stackoverflow.com/a/77553798
 Compression=zip
