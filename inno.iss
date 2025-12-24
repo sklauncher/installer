@@ -145,7 +145,14 @@ begin
     Exit;
   end;
 
-  Log('New JRE extracted successfully, proceeding with replacement...');
+  if not FileExists(TempJREPath + '\bin\javaw.exe') then
+  begin
+    Log('Extracted JRE appears to be empty or invalid (javaw.exe not found)');
+    Log('Keeping existing JRE directory if present to avoid leaving user with broken JRE');
+    Exit;
+  end;
+
+  Log('New JRE extracted and validated successfully, proceeding with replacement...');
 
   if not DirExists(ExpandConstant('{app}')) then
   begin
@@ -155,19 +162,30 @@ begin
 
   if DirExists(FinalJREPath) then
   begin
-    Log('Backing up existing jre directory to: ' + TempBackupPath);
-    if DirExists(TempBackupPath) then
-      DelTree(TempBackupPath, True, True, True);
-    
-    if RenameFile(FinalJREPath, TempBackupPath) then
-      Log('Successfully backed up existing jre directory')
+    if FileExists(FinalJREPath + '\bin\javaw.exe') then
+    begin
+      Log('Existing JRE is valid, backing up to: ' + TempBackupPath);
+      if DirExists(TempBackupPath) then
+        DelTree(TempBackupPath, True, True, True);
+      
+      if RenameFile(FinalJREPath, TempBackupPath) then
+        Log('Successfully backed up existing jre directory')
+      else
+      begin
+        Log('Failed to backup existing jre directory, trying direct delete...');
+        if DelTree(FinalJREPath, True, True, True) then
+          Log('Successfully removed existing jre directory')
+        else
+          Log('Failed to remove existing jre directory');
+      end;
+    end
     else
     begin
-      Log('Failed to backup existing jre directory, trying direct delete...');
+      Log('Existing JRE is broken (javaw.exe not found), deleting directly...');
       if DelTree(FinalJREPath, True, True, True) then
-        Log('Successfully removed existing jre directory')
+        Log('Successfully removed broken jre directory')
       else
-        Log('Failed to remove existing jre directory');
+        Log('Failed to remove broken jre directory');
     end;
   end;
 
@@ -332,10 +350,40 @@ begin
   Log('JavaFX files copy process completed');
 end;
 
+function ValidateInstallation: Boolean;
+var
+  JavawPath: String;
+begin
+  Result := True;
+  JavawPath := ExpandConstant('{app}\jre\bin\javaw.exe');
+  
+  Log('Validating installation...');
+  Log('Checking for javaw.exe at: ' + JavawPath);
+  
+  if not FileExists(JavawPath) then
+  begin
+    Log('CRITICAL: javaw.exe not found at expected location');
+    Result := False;
+  end
+  else
+    Log('Validation successful: javaw.exe found');
+end;
+
 procedure DoInstall;
+var
+  ErrorMsg: String;
 begin
   RenameJRE;
   CopyJavaFXFiles;
+  
+  if not ValidateInstallation then
+  begin
+    ErrorMsg := 'Installation validation failed: Java Runtime (javaw.exe) was not found.' + #13#10#13#10 +
+               'This may be due to a download or extraction failure.' + #13#10 +
+               'Please try running the installer again or contact support.';
+    SuppressibleMsgBox(ErrorMsg, mbCriticalError, MB_OK, IDOK);
+    Abort;
+  end;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
