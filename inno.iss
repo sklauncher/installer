@@ -80,6 +80,114 @@ var
   JavaFXModules: array[0..5] of string;
   CurrentJREFolder: String;
 
+function CopyDirectoryRecursive(SourcePath, DestPath: String): Boolean;
+var
+  FindRec: TFindRec;
+  SourceFile, DestFile, SourceSubDir, DestSubDir: String;
+begin
+  Result := True;
+  
+  if not ForceDirectories(DestPath) then
+  begin
+    Log('Failed to create directory: ' + DestPath);
+    Result := False;
+    Exit;
+  end;
+  
+  if FindFirst(SourcePath + '\*', FindRec) then
+  begin
+    try
+      repeat
+        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then
+        begin
+          SourceFile := SourcePath + '\' + FindRec.Name;
+          DestFile := DestPath + '\' + FindRec.Name;
+          
+          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
+          begin
+            SourceSubDir := SourceFile;
+            DestSubDir := DestFile;
+            if not CopyDirectoryRecursive(SourceSubDir, DestSubDir) then
+            begin
+              Result := False;
+              Exit;
+            end;
+          end
+          else
+          begin
+            if not FileCopy(SourceFile, DestFile, False) then
+            begin
+              Log('Failed to copy file: ' + SourceFile + ' -> ' + DestFile);
+              Result := False;
+              Exit;
+            end;
+          end;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
+function MoveDirectoryRobust(SourcePath, DestPath: String): Boolean;
+begin
+  Result := False;
+  
+  Log('Attempting to move directory: ' + SourcePath + ' -> ' + DestPath);
+  
+  if RenameFile(SourcePath, DestPath) then
+  begin
+    Log('RenameFile succeeded (same drive)');
+    Result := True;
+    Exit;
+  end;
+  
+  Log('RenameFile failed (likely cross-drive), falling back to copy...');
+  
+  if CopyDirectoryRecursive(SourcePath, DestPath) then
+  begin
+    if FileExists(DestPath + '\bin\javaw.exe') then
+    begin
+      Log('Copy succeeded and validated, removing source directory...');
+      DelTree(SourcePath, True, True, True);
+      Result := True;
+    end
+    else
+    begin
+      Log('Copy appeared to succeed but javaw.exe not found in destination');
+      DelTree(DestPath, True, True, True);
+    end;
+  end
+  else
+    Log('CopyDirectoryRecursive failed');
+end;
+
+function ValidateExtractedJRE(JREPath: String): Boolean;
+var
+  RetryCount: Integer;
+begin
+  Result := False;
+  
+  for RetryCount := 1 to 3 do
+  begin
+    if DirExists(JREPath) and FileExists(JREPath + '\bin\javaw.exe') then
+    begin
+      Log('Extraction validated on attempt ' + IntToStr(RetryCount));
+      Result := True;
+      Exit;
+    end;
+    
+    if RetryCount < 3 then
+    begin
+      Log('Extraction validation failed, waiting before retry ' + IntToStr(RetryCount + 1) + '...');
+      Sleep(500);
+    end;
+  end;
+  
+  Log('Extraction validation failed after all retries');
+end;
+
 function OnDownloadProgress(Url, FileName: String; Progress, ProgressMax: Int64): Boolean;
 begin
   if Progress = ProgressMax then
@@ -138,6 +246,7 @@ end;
 procedure RenameJRE;
 var
   TempJREPath, FinalJREPath, TempBackupPath: String;
+  MoveSucceeded: Boolean;
 begin
   TempJREPath := ExpandConstant('{tmp}\') + CurrentJREFolder;
   FinalJREPath := ExpandConstant('{app}\jre');
@@ -147,21 +256,17 @@ begin
   Log('Temp JRE path: ' + TempJREPath);
   Log('Final JRE path: ' + FinalJREPath);
 
-  if not DirExists(TempJREPath) then
+  if not ValidateExtractedJRE(TempJREPath) then
   begin
-    Log('Source JRE directory not found: ' + TempJREPath);
-    Log('Keeping existing JRE directory if present to avoid leaving user with empty JRE');
+    Log('CRITICAL: Extracted JRE validation failed');
+    if DirExists(FinalJREPath) and FileExists(FinalJREPath + '\bin\javaw.exe') then
+      Log('Keeping existing valid JRE')
+    else
+      Log('No valid JRE available - installation will fail validation');
     Exit;
   end;
 
-  if not FileExists(TempJREPath + '\bin\javaw.exe') then
-  begin
-    Log('Extracted JRE appears to be empty or invalid (javaw.exe not found)');
-    Log('Keeping existing JRE directory if present to avoid leaving user with broken JRE');
-    Exit;
-  end;
-
-  Log('New JRE extracted and validated successfully, proceeding with replacement...');
+  Log('New JRE extracted and validated, proceeding with replacement...');
 
   if not DirExists(ExpandConstant('{app}')) then
   begin
@@ -177,31 +282,25 @@ begin
       if DirExists(TempBackupPath) then
         DelTree(TempBackupPath, True, True, True);
       
-      if RenameFile(FinalJREPath, TempBackupPath) then
-        Log('Successfully backed up existing jre directory')
-      else
+      if not MoveDirectoryRobust(FinalJREPath, TempBackupPath) then
       begin
-        Log('Failed to backup existing jre directory, trying direct delete...');
-        if DelTree(FinalJREPath, True, True, True) then
-          Log('Successfully removed existing jre directory')
-        else
-          Log('Failed to remove existing jre directory');
+        Log('Failed to backup existing jre, trying direct delete...');
+        DelTree(FinalJREPath, True, True, True);
       end;
     end
     else
     begin
-      Log('Existing JRE is broken (javaw.exe not found), deleting directly...');
-      if DelTree(FinalJREPath, True, True, True) then
-        Log('Successfully removed broken jre directory')
-      else
-        Log('Failed to remove broken jre directory');
+      Log('Existing JRE is broken, deleting...');
+      DelTree(FinalJREPath, True, True, True);
     end;
   end;
 
-  Log('Moving JRE directory from ' + TempJREPath + ' to ' + FinalJREPath);
-  if RenameFile(TempJREPath, FinalJREPath) then
+  Log('Installing JRE from ' + TempJREPath + ' to ' + FinalJREPath);
+  MoveSucceeded := MoveDirectoryRobust(TempJREPath, FinalJREPath);
+  
+  if MoveSucceeded then
   begin
-    Log('Successfully moved JRE directory');
+    Log('Successfully installed JRE');
     if DirExists(TempBackupPath) then
     begin
       Log('Removing backup directory...');
@@ -210,14 +309,11 @@ begin
   end
   else
   begin
-    Log('Failed to move JRE directory');
+    Log('CRITICAL: Failed to install JRE');
     if DirExists(TempBackupPath) and not DirExists(FinalJREPath) then
     begin
       Log('Restoring backup JRE directory...');
-      if RenameFile(TempBackupPath, FinalJREPath) then
-        Log('Successfully restored backup JRE directory')
-      else
-        Log('Failed to restore backup JRE directory');
+      MoveDirectoryRobust(TempBackupPath, FinalJREPath);
     end;
   end;
 end;
