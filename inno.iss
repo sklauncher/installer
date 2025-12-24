@@ -41,7 +41,7 @@ ArchiveExtraction=full
 Compression=zip
 SolidCompression=no
 ; stop  - https://stackoverflow.com/a/77553798
-WizardStyle=modern
+WizardStyle=modern dynamic
 WizardSmallImageFile=img/small.bmp
 WizardImageFile=img/large.bmp
 ExtraDiskSpaceRequired=52428800
